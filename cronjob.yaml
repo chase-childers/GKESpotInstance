@@ -1,0 +1,52 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: service-restart
+spec:
+  schedule: 0 */2 * * *
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - command:
+            - /bin/sh
+            - -c
+            - kubectl rollout restart deployment/sample-nginx-deployment
+            image: bitnami/kubectl:latest
+            imagePullPolicy: Always
+            name: service-restart
+          serviceAccountName: service-restart-sa
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: service-restart-sa
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: service-restarter
+rules:
+- apiGroups:
+  - apps
+  - extensions
+  resourceNames:
+  - sample-nginx-deployment
+  resources:
+  - deployments
+  verbs:
+  - get
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: service-restarter-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: service-restarter
+subjects:
+- kind: ServiceAccount
+  name: service-restart-sa
